@@ -98,7 +98,7 @@
                 // Step 1: ESRGAN enhance
                 Bitmap enhanced = ESRGANEnhancer.enhance(bitmap, getApplicationContext());
 
-                // Step 2: Gemini setup (same as Jyoti)
+                // Step 2: AI on-cloud
                 GenerativeModel gm = new GenerativeModel("gemini-2.0-flash", "AIzaSyAkTO9g_hWjXisPhQ7b4cEST9vmM3a9csI");
                 GenerativeModelFutures model = GenerativeModelFutures.from(gm);
 
