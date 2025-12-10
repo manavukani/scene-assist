@@ -23,6 +23,38 @@ The app follows a two-activity architecture with a five-stage image processing p
 | `GlobalBitmap`        | `GlobalBitmap.java`        | Static bitmap storage between activities     |
 | `BitmapUtils`         | `BitmapUtils.java`         | ImageProxy to Bitmap conversion              |
 
+### Data Flow
+
+```shell
+                 ┌──────────────┐
+                 │ MainActivity │
+                 └──────┬───────┘
+                        │
+             ┌──────────▼──────────┐
+             │ Camera + Frame Feed │
+             └──────────┬──────────┘
+                        │
+            ┌───────────┴───────────┐
+            │      User Actions     │
+            ├───────────┬───────────┤
+            │Describe   │    Ask    │
+            └─────┬─────┴─────┬─────┘
+                  │           │
+            ┌─────▼────┐ ┌────▼────────────────────────┐
+            │Enhance   │ │STT → Visibility Check       │
+            │(ESRGAN)  │ └────┬────────────┬───────────┘
+            └─────┬────┘      │Full        │Partial / No
+                  │           │            │
+           ┌──────▼───────────┘            ▼
+           │ Send to Gemini API     Prompt/TTS messages
+           └──────┬────────────────────────┘
+                  │
+           ┌──────▼─────┐
+           │ Results UI │
+           │ + TTS      │
+           └────────────┘
+```
+
 ## Project Structure
 
 ```
