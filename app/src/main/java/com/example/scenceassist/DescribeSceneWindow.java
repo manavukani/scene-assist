@@ -1,5 +1,6 @@
     package com.example.scenceassist;
 
+    import android.annotation.SuppressLint;
     import android.content.Intent;
     import android.graphics.Bitmap;
     import android.graphics.Matrix;
@@ -44,6 +45,7 @@
         private final Executor executor = Executors.newSingleThreadExecutor();
         private final Handler uiHandler = new Handler(Looper.getMainLooper());
 
+        @SuppressLint("SuspiciousIndentation")
         @Override
         protected void onCreate(Bundle savedInstanceState) {
             super.onCreate(savedInstanceState);
@@ -98,8 +100,8 @@
                 // Step 1: ESRGAN enhance
                 Bitmap enhanced = ESRGANEnhancer.enhance(bitmap, getApplicationContext());
 
-                // Step 2: AI on-cloud
-                GenerativeModel gm = new GenerativeModel("gemini-2.0-flash", "AIzaSyAkTO9g_hWjXisPhQ7b4cEST9vmM3a9csI");
+                // Step 2: Gemini setup (same as Jyoti)
+                GenerativeModel gm = new GenerativeModel("gemini-2.0-flash", "API_KEY_HERE"); // removed the API key for saftey
                 GenerativeModelFutures model = GenerativeModelFutures.from(gm);
 
                 Content content = new Content.Builder()

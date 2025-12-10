@@ -4,6 +4,7 @@ import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
+import android.graphics.Matrix;
 import android.os.Bundle;
 import android.speech.RecognizerIntent;
 import android.util.Log;
@@ -29,6 +30,16 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import android.widget.Toast;
+import android.speech.tts.TextToSpeech;
+import com.google.ai.client.generativeai.GenerativeModel;
+import com.google.ai.client.generativeai.java.GenerativeModelFutures;
+import com.google.ai.client.generativeai.type.Content;
+import com.google.ai.client.generativeai.type.GenerateContentResponse;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+
 public class MainActivity extends AppCompatActivity implements ImageAnalysis.Analyzer {
 
     private PreviewView previewView;
@@ -42,6 +53,9 @@ public class MainActivity extends AppCompatActivity implements ImageAnalysis.Ana
             Manifest.permission.CAMERA,
             Manifest.permission.RECORD_AUDIO
     };
+
+    private TextToSpeech tts;
+    private final ExecutorService llmExecutor = Executors.newSingleThreadExecutor();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -59,6 +73,14 @@ public class MainActivity extends AppCompatActivity implements ImageAnalysis.Ana
 
         describeBtn.setOnClickListener(v -> describeClick = true);
         askBtn.setOnClickListener(v -> startSpeechToText());
+
+        tts = new TextToSpeech(this, status -> {
+            if (status == TextToSpeech.SUCCESS) {
+                tts.setLanguage(Locale.getDefault());
+                tts.setSpeechRate(1.0f);
+            }
+        });
+
     }
 
     private void startCamera() {
@@ -100,11 +122,28 @@ public class MainActivity extends AppCompatActivity implements ImageAnalysis.Ana
                 runOnUiThread(() -> openDescribeActivity("Describe this scene for a visually impaired person."));
             }
 
+//            if (askClick && currentFrame != null) {
+//                askClick = false;
+//                GlobalBitmap.setBitmap(currentFrame);
+//                runOnUiThread(() -> openDescribeActivity(currentQuestion));
+//            }
+
+//            if (askClick && currentFrame != null) {
+//                askClick = false;
+//                Bitmap frameCopy = Bitmap.createBitmap(currentFrame);
+//                runVisibilityCheck(frameCopy, currentQuestion);
+//            }
+
             if (askClick && currentFrame != null) {
                 askClick = false;
-                GlobalBitmap.setBitmap(currentFrame);
-                runOnUiThread(() -> openDescribeActivity(currentQuestion));
+                Bitmap originalFrame = Bitmap.createBitmap(currentFrame);   // keep original
+                Bitmap rotatedFrame = rotateBitmap(originalFrame, -90);      // rotated for LLM
+
+                runVisibilityCheck(rotatedFrame, originalFrame, currentQuestion);
+
             }
+
+
 
         } catch (Exception e) {
             Log.e("Analyzer", "Frame error: " + e.getMessage());
@@ -122,6 +161,75 @@ public class MainActivity extends AppCompatActivity implements ImageAnalysis.Ana
         intent.putExtra(RecognizerIntent.EXTRA_PROMPT, "Ask about this scene...");
         startActivityForResult(intent, STT_REQUEST_CODE);
     }
+
+    private void runVisibilityCheck(Bitmap frame, Bitmap originalFrame, String question) {
+        try {
+            GenerativeModel gm = new GenerativeModel("gemini-2.0-flash", "API_KEY_HERE"); // removed the API key for saftey
+            GenerativeModelFutures model = GenerativeModelFutures.from(gm);
+
+            // LLM must respond ONLY with:
+            // "OK"  OR  "PARTIAL: move left/right"  OR  "NOT_FOUND"
+            Content content = new Content.Builder()
+                    .addText(
+                            "You are a vision assistant. A user asked: \"" + question + "\".\n" +
+                                    "Analyze the image and determine if the information asked about is completely and fully refer visible.\n\n" +
+                                    "Respond using ONE of the following formats ONLY:\n" +
+                                    "1. If fully visible → reply exactly: OK\n" +
+                                    "2. If partially visible and not full information to judge or provide the output → reply like: PARTIAL: move slightly left/right/up/down\n" +
+                                    "3. If not visible → reply exactly: NOT_FOUND"
+                    )
+                    .addImage(frame)
+                    .build();
+
+            ListenableFuture<GenerateContentResponse> response = model.generateContent(content);
+
+            Futures.addCallback(response, new FutureCallback<GenerateContentResponse>() {
+                @Override
+                public void onSuccess(GenerateContentResponse result) {
+                    String reply = result.getText().trim().toUpperCase();
+                    Log.i("LLM-VIS", "LLM said: " + reply);
+
+                    runOnUiThread(() -> handleVisibilityResult(reply, question, frame, originalFrame));
+                }
+
+                @Override
+                public void onFailure(Throwable t) {
+                    Log.e("LLM-VIS", "LLM error", t);
+                    runOnUiThread(() -> speak("Scene Assist is unavailable right now."));
+                }
+            }, llmExecutor);
+
+        } catch (Exception e) {
+            Log.e("LLM-VIS", "Exception", e);
+            speak("Something went wrong.");
+        }
+    }
+
+    private void handleVisibilityResult(String reply, String question, Bitmap frame, Bitmap originalFrame) {
+
+        if (reply.equals("OK")) {
+            // Fully visible → go to next screen immediately
+            GlobalBitmap.setBitmap(originalFrame);
+            openDescribeActivity(question);
+            return;
+        }
+
+        if (reply.startsWith("PARTIAL")) {
+            String instruction = reply.replace("PARTIAL:", "").trim();
+            speak(instruction);
+            return;
+        }
+
+        if (reply.equals("NOT_FOUND")) {
+            speak("No such item found in the camera view.");
+            return;
+        }
+
+        // Fallback if LLM misbehaves
+        speak("I did not understand the response.");
+    }
+
+
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
@@ -149,11 +257,28 @@ public class MainActivity extends AppCompatActivity implements ImageAnalysis.Ana
         return true;
     }
 
+    private void speak(String msg) {
+        if (tts != null) {
+            tts.speak(msg, TextToSpeech.QUEUE_FLUSH, null, "tts_id_main");
+        }
+        Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
+    }
+
+
     @Override
     protected void onDestroy() {
         super.onDestroy();
         cameraExecutor.shutdown();
+        if (tts != null) { tts.stop(); tts.shutdown(); }
+
     }
+
+    private Bitmap rotateBitmap(Bitmap original, float degrees) {
+        Matrix matrix = new Matrix();
+        matrix.preRotate(degrees);
+        return Bitmap.createBitmap(original, 0, 0, original.getWidth(), original.getHeight(), matrix, true);
+    }
+
 }
 
 
