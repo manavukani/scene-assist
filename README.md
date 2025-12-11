@@ -25,35 +25,7 @@ The app follows a two-activity architecture with a five-stage image processing p
 
 ### Data Flow
 
-```shell
-                 ┌──────────────┐
-                 │ MainActivity │
-                 └──────┬───────┘
-                        │
-             ┌──────────▼──────────┐
-             │ Camera + Frame Feed │
-             └──────────┬──────────┘
-                        │
-            ┌───────────┴───────────┐
-            │      User Actions     │
-            ├───────────┬───────────┤
-            │Describe   │    Ask    │
-            └─────┬─────┴─────┬─────┘
-                  │           │
-            ┌─────▼────┐ ┌────▼────────────────────────┐
-            │Enhance   │ │STT → Visibility Check       │
-            │(ESRGAN)  │ └────┬────────────┬───────────┘
-            └─────┬────┘      │Full        │Partial / No
-                  │           │            │
-           ┌──────▼───────────┘            ▼
-           │ Send to Gemini API     Prompt/TTS messages
-           └──────┬────────────────────────┘
-                  │
-           ┌──────▼─────┐
-           │ Results UI │
-           │ + TTS      │
-           └────────────┘
-```
+<img width="1170" height="304" alt="Screenshot 2025-12-10 184423" src="https://github.com/user-attachments/assets/7ad1dd3d-0ae3-4be5-8cb2-e5312df401c5" />
 
 ## Project Structure
 
@@ -148,11 +120,8 @@ Contains utility methods for converting CameraX ImageProxy objects to Bitmap for
 2. **Configure API Keys**
    - Replace `API_KEY_HERE` in `MainActivity.java` line 167
    - Replace `API_KEY_HERE` in `DescribeSceneWindow.java` line 104
-
-3. **Add TensorFlow Lite Model**
-   - Place `real_esrgan_x4v3.tflite` in `app/src/main/assets/`
-
-4. **Build and Run**
+    
+3. **Build and Run with Android Studio**
    ```bash
    ./gradlew assembleDebug
    ./gradlew installDebug
