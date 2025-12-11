@@ -9,6 +9,11 @@ Scene Assist is an accessibility-focused Android application designed to help vi
 - **Image Enhancement**: 4x super-resolution using ESRGAN TensorFlow Lite model
 - **Smart Visibility Check**: Pre-validates if requested information is visible in frame
 
+| App Home Page | Describe Mode | Ask Mode |
+|----------|------|---------|
+| <img src="https://github.com/user-attachments/assets/28f33982-dace-4ee0-869e-a2c3c0371b02" height="560"> | <img src="https://github.com/user-attachments/assets/1bf6b995-f1a7-4f3b-8e3f-c5f7e99e7af2" height="560">  | <img src="https://github.com/user-attachments/assets/c87a15e7-454a-4e96-b7b6-0cabbd7e67e2" height="560"> |
+
+
 ## Architecture
 
 The app follows a two-activity architecture with a five-stage image processing pipeline:
